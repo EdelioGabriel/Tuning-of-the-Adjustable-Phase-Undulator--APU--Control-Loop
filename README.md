@@ -28,6 +28,14 @@ O pipeline parte de um Bode experimental (magnitude + fase em função da frequ�
 ├── two_mass_identification.py               # Identificação física: J1, J2, K_θ, D_θ
 └── visualization_bodes.py                   # Plot comparativo de todos os Bodes, com margens de ganho e fase
 ```
+## Instalação
+
+**Pré-requisitos:** Python 3.10+
+
+```bash
+git clone https://github.com/EdelioGabriel/Tuning-of-the-Adjustable-Phase-Undulator--APU--Control-Loop.git
+pip install -r requirements
+```
 
 ---
 
