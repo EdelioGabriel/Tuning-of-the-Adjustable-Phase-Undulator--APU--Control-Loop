@@ -102,9 +102,3 @@ python visualization_bodes.py
 Carrega todos os `.csv` de `bode_files_PAPU/`, monta um objeto FRD para cada experimento, calcula margens de ganho e de fase (`ct.margin`) e plota todos os diagramas de Bode sobrepostos — útil para comparar diferentes configurações de controle (ex.: ganhos `kp` e tempos integrais `Tn`).
 
 ---
-
-## Dependências Python
-
-```
-pip install control numpy pandas scipy matplotlib optuna
-```
