@@ -8,21 +8,9 @@ Conjunto de scripts em Python para **identificação de sistemas** a partir de d
 
 O pipeline parte de um Bode experimental (magnitude + fase em função da frequência) e caminha em duas frentes complementares:
 
-1. **Identificação matemática** — ajustar uma função de transferência (polos/zeros) que reproduza a curva medida, com a estrutura escolhida automaticamente via Optuna e penalizada pelo critério **AICc**.
+1. **Identificação matemática** — ajustar uma função de transferência (polos/zeros) que reproduza a curva medida.
 2. **Identificação física** — a partir dessa FT, recuperar os parâmetros reais do sistema mecânico, modelado como duas massas (motor + carga) acopladas por um eixo com rigidez torcional.
-
-```
-Modelo físico (duas massas, entrada = torque):
-
-    J2 s² + D_θ s + K_θ
-H(s) = ──────────────────────────────────────────────────────
-        s · [ J1·J2 s² + (J1+J2)·D_θ s + (J1+J2)·K_θ ]
-
-Parâmetros identificados: J1, J2, K_θ, D_θ
-```
-
-Todos os scripts têm como autor **Edélio Gabriel Magalhães de Jesus**.
-
+3. **Identificação dos ganhos ótimos** - análise dos diagramas de Bode para inferi a estabilidade do sistema em malha fechada a partir dos dados de malha aberta para, então, obter os ganhos que melhor sintonizem a malha do ondulador.
 ---
 
 ## Estrutura do projeto
@@ -97,8 +85,6 @@ A partir da FT ajustada, extrai os polos/zeros complexos (frequências naturais 
 | `K_θ` | Rigidez torcional do acoplamento |
 | `D_θ` | Amortecimento torcional |
 
-O script também compara o resultado com um valor de datasheet (quando fornecido) e sinaliza a presença de um possível ganho `Kt` implícito.
-
 ### 6. Visualização comparativa
 
 ```
@@ -106,12 +92,6 @@ python visualization_bodes.py
 ```
 
 Carrega todos os `.csv` de `bode_files_PAPU/`, monta um objeto FRD para cada experimento, calcula margens de ganho e de fase (`ct.margin`) e plota todos os diagramas de Bode sobrepostos — útil para comparar diferentes configurações de controle (ex.: ganhos `kp` e tempos integrais `Tn`).
-
----
-
-## Convenção de nomenclatura dos experimentos
-
-Os nomes dos arquivos de Bode (ex.: `Id_1_Vel_NC_kp_586_Tn_15__1.csv`) codificam a configuração do laço testada — eixo, tipo de malha, ganho proporcional `kp` e tempo integral `Tn` — permitindo rastrear qual ajuste de controlador gerou cada curva de resposta em frequência.
 
 ---
 
