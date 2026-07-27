@@ -1,5 +1,5 @@
 """
- ANÁLISE DE UM ÚNICO BODE (SELECIONAR O NOME DO ARQUIVO CSV)
+ ANÁLISE DE UM ÚNICO BODE
 
 Esse script tem como objetivo analisar um único Bode, carregando os dados de um arquivo CSV específico e estimando a função de transferência correspondente. Ele utiliza a biblioteca `control` para criar objetos de resposta em frequência (FRD) e realizar a otimização para ajustar os parâmetros da função de transferência.
 

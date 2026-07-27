@@ -1,5 +1,5 @@
 """
- ANÁLISE DE UM ÚNICO BODE (SELECIONAR O NOME DO ARQUIVO CSV)
+ ANÁLISE DE UM ÚNICO BODE 
 
 Esse script tem como objetivo analisar um único Bode, carregando os dados de um arquivo CSV específico e estimando a função de transferência correspondente. Ele utiliza a biblioteca `control` para criar objetos de resposta em frequência (FRD), o Optuna para buscar a melhor estrutura (número de polos/zeros reais e complexos, presença de polo/zero na origem) e o `scipy.optimize.least_squares` para ajustar os parâmetros contínuos da função de transferência dado cada conjunto de hiperparâmetros estruturais.
 
