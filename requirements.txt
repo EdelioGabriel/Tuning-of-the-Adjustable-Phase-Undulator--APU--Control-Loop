@@ -1,0 +1,6 @@
+numpy
+control
+pandas
+matplotlib
+scipy
+optuna
