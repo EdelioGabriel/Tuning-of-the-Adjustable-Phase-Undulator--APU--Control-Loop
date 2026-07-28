@@ -28,6 +28,14 @@ O pipeline parte de um Bode experimental (magnitude + fase em função da frequ�
 ├── two_mass_identification.py               # Identificação física: J1, J2, K_θ, D_θ
 └── visualization_bodes.py                   # Plot comparativo de todos os Bodes, com margens de ganho e fase
 ```
+## Instalação
+
+**Pré-requisitos:** Python 3.10+
+
+```bash
+git clone https://github.com/EdelioGabriel/Tuning-of-the-Adjustable-Phase-Undulator--APU--Control-Loop.git
+pip install -r requirements
+```
 
 ---
 
@@ -94,9 +102,3 @@ python visualization_bodes.py
 Carrega todos os `.csv` de `bode_files_PAPU/`, monta um objeto FRD para cada experimento, calcula margens de ganho e de fase (`ct.margin`) e plota todos os diagramas de Bode sobrepostos — útil para comparar diferentes configurações de controle (ex.: ganhos `kp` e tempos integrais `Tn`).
 
 ---
-
-## Dependências Python
-
-```
-pip install control numpy pandas scipy matplotlib optuna
-```
