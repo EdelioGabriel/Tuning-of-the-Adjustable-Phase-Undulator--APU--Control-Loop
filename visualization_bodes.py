@@ -12,9 +12,13 @@ import pandas as pd
 import control as ct
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 
+TIPO = 'Pos'
 PASTA_DADOS = './bode_files_PAPU'
-arquivos_csv = glob.glob(os.path.join(PASTA_DADOS, '*.csv'))
+OUTPUT_DIR = Path('./bodes_pngs')
+
+arquivos_csv = glob.glob(os.path.join(PASTA_DADOS, f'*{TIPO}*.csv'))
 
 def carregar_dados(arquivo):
     with open(arquivo, 'r') as f:
@@ -60,6 +64,11 @@ if sistemas:
     ct.bode_plot(sistemas, dB=True, deg=True, label=labels)
     plt.gcf().axes[0].legend(loc='lower left')
     plt.tight_layout()
+
+    output_path = OUTPUT_DIR / f'{TIPO}_Bode_Plots.png'
+    plt.savefig(output_path)
+    print(f"Saved {output_path}")
+
     plt.show()
 else:
     print('Nenhum sistema foi carregado com sucesso.')
