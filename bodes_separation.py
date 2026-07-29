@@ -14,8 +14,8 @@ import pandas as pd
 # =========================================================
 # SEPARAÇÃO DOS BODES EM ARQUIVOS CSV INDIVIDUAIS
 # =========================================================
-FILE_NAME = "./files/BodeProject_PAPU_1.csv"
-OUTPUT_DIR = Path("./bode_plots_PAPU")
+FILE_NAME = "./files/Bode Project_PAPU_POS.csv"
+OUTPUT_DIR = Path("./bode_files_PAPU")
 
 def make_safe_name(name: str, index: int) -> str:
     if not name:
@@ -68,9 +68,6 @@ def load_bode_table(path: str | Path = FILE_NAME):
         raise ValueError("Nenhum bloco de dados do Bode foi encontrado no arquivo.")
 
     return [(name, pd.DataFrame(rows, columns=header)) for name, header, rows in blocks]
-
-# Garante que a pasta de destino exista
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 blocks = load_bode_table(FILE_NAME)
 for name, df in blocks:

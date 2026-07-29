@@ -15,20 +15,26 @@ import pandas as pd
 import io
 
 # =========================================================
-# Valorres reais
-# ========================================================
-J1_twin_gcm2 = None  # g·cm²
+# Valores reais (medidos / datasheet) — NÃO SÃO SUPOSIÇÕES
+# =========================================================
+# Inércia do motor, do datasheet, em kg.cm²
+J1_real_kgcm2 = 1.2
+J1_real_kgm2 = J1_real_kgcm2 * 1e-4  # kg.cm² -> kg.m²  (1 cm² = 1e-4 m²)
 
-if J1_twin_gcm2 is not None:
-    J1_twin_kgm2 = J1_twin_gcm2 * 1e-7  # Converter para kg·m²
+# Constante de torque do motor, medida, em N.m/A
+Kt_real = 0.22
+
+# Premissa que permanece (não eliminável, mas agora EXPLÍCITA):
+# a entrada do modelo identificado (sys_tf) é corrente elétrica, em Ampères.
+# É essa premissa que torna H(0) = Kt / (J1 + J2) fisicamente válido.
 
 # =========================================================
 # Leitura do arquivo
 # =========================================================
 
-NOME_ARQUIVO = "TF_Id_1_Vel_NC_kp_586_Tn_15__1.csv.json"
+NOME_ARQUIVO = "./tfs_json_PAPU/Process_TF_Id_1_Pos_without_oversampling_kp_10_Tn_0_20.csv.json"
 
-BODE_NAME_FILE = "Id_1_Vel_NC_kp_586_Tn_15__1.csv"
+BODE_NAME_FILE = "./bode_files_PAPU/Id_1_Pos_without_oversampling_kp_10_Tn_0_20.csv"
 
 try:
     with open(NOME_ARQUIVO, 'r') as arquivo:
@@ -42,20 +48,20 @@ except FileNotFoundError:
     raise FileNotFoundError(f"Arquivo '{NOME_ARQUIVO}' não encontrado.")
 
 # =========================================================
-# Cálculo dos parâmetros (SEM Kt, identificando J1)
+# Extração de polos/zeros complexos do modelo identificado (sys_tf)
 # =========================================================
 
-# --- EXTRAÇÃO ROBUSTA DE POLOS E ZEROS ---
+# --- EXTRAÇÃO DE POLOS E ZEROS ---
 zeros = ct.zeros(sys_tf)
 polos = ct.poles(sys_tf)
 
-# Separa complexos de reais (filtrando o polo na origem em s=0)
-zeros_complexos = [z for z in zeros if np.abs(np.imag(z)) > 1e-10]
-polos_complexos = [p for p in polos if np.abs(np.imag(p)) > 1e-10]
+# Separa complexos de reais 
+zeros_complexos = [z for z in zeros if np.imag(z)]
+polos_complexos = [p for p in polos if np.imag(p)]
 
-# Polos e zeros reais (excluindo o zero se estiver na origem)
-polos_reais = [p for p in polos if np.abs(np.imag(p)) <= 1e-10 and not np.isclose(p, 0.0, atol=1e-5)]
-zeros_reais = [z for z in zeros if np.abs(np.imag(z)) <= 1e-10 and not np.isclose(z, 0.0, atol=1e-5)]
+# Polos e zeros reais
+polos_reais = [p for p in polos if np.abs(np.imag(p)) <= 1e-15 and not np.isclose(p, 0.0, atol=1e-5)]
+zeros_reais = [z for z in zeros if np.abs(np.imag(z)) <= 1e-15 and not np.isclose(z, 0.0, atol=1e-5)]
 
 # --- VALIDAÇÃO FÍSICA SEGUNDO A ESTRUTURA GERADA ---
 if len(polos_complexos) >= 2:
@@ -67,7 +73,7 @@ if len(polos_complexos) >= 2:
 else:
     raise ValueError("O modelo gerado não possui o par de polos complexos esperado para a dinâmica de duas massas.")
 
-# Tratamento caso o modelo não possua zeros complexos (Como a FT atual de 3ª ordem)
+# Tratamento caso o modelo não possua zeros complexos
 if len(zeros_complexos) >= 2:
     z_comp = zeros_complexos[0]
     omega_z = np.abs(z_comp)
@@ -76,7 +82,6 @@ if len(zeros_complexos) >= 2:
 else:
     print("\n[Aviso] O modelo atual não estimou zeros complexos (acoplamento infinitamente rígido).")
     # Para evitar quebrar o cálculo físico de J1 e J2 mais abaixo, define-se um limite analítico
-    # Ou você pode forçar o Optuna a buscar uma ordem que obrigatoriamente tenha zeros complexos.
     omega_z = np.inf 
 
 
@@ -88,9 +93,13 @@ zeta_p_lista = [-np.real(p) / np.abs(p) for p in polos_complexos]
 
 # Usar a média 
 w_z = np.mean(w_z_lista)
-w_p = np.mean(w_p_lista)
 zeta_z = np.mean(zeta_z_lista)
-zeta_p = np.mean(zeta_p_lista)
+
+# Escolher frequencia mais alta para o modo torsinal
+indice = np.argmax(w_p_lista)
+
+w_p = w_p_lista[indice]
+zeta_p = zeta_p_lista[indice]
 
 print(f"\nZeros complexos encontrados: {len(zeros_complexos)}")
 for i, z in enumerate(zeros_complexos):
@@ -131,105 +140,92 @@ H(0) = numerador(s=0) / denominador(s=0)
 num_coef = sys_tf.num[0][0] 
 den_coef = sys_tf.den[0][0]  
 
-H_0 = num_coef[-1] / den_coef[-1]  
+# =========================================================
+# Ganho DC
+# =========================================================
 
-print(f"\n--- EXTRAÇÃO DO GANHO DC DA FT ---")
-print(f"Numerador em s=0: {num_coef[-1]:.6e}")
-print(f"Denominador em s=0: {den_coef[-1]:.6e}")
-print(f"Ganho DC (H(0)): {H_0:.6e}")
+print("\n--- EXTRAÇÃO DO GANHO DC ---")
 
-# Relação teórica (com entrada = torque, Kt implícito = 1):
+# Operador s
+s = ct.tf([1, 0], [1])
+
+# Verifica se existe polo na origem
+try:
+    H_0 = ct.dcgain(sys_tf)
+
+    if np.isinf(H_0):
+        print("Polo na origem detectado.")
+        print("Calculando ganho DC da FT de velocidade (s·G(s)).")
+
+        sys_vel = s * sys_tf
+        H_0 = ct.dcgain(sys_vel)
+
+    else:
+        print("Modelo sem polo na origem.")
+
+except Exception as e:
+    raise RuntimeError(f"Erro ao calcular o ganho DC: {e}")
+
+print(f"Ganho DC = {H_0:.6e}")
+
+# =========================================================
+# J_total a partir de valores REAIS (Kt medido), não suposição
+# =========================================================
 """
-H(0) = 1 / (J1 + J2)
-# Logo: J1 + J2 = 1 / H(0)
+H(0) = Kt / (J1 + J2)   [entrada = corrente, em A]
+Logo: J1 + J2 = Kt / H(0)
 """
-J_total = 1.0 / H_0 if H_0 > 0 else 1.0
+J_total = Kt_real / H_0
 
-print(f"\nRelação: H(0) = 1/(J₁ + J₂)")
+print(f"\nRelação: H(0) = Kt / (J₁ + J₂), com Kt = {Kt_real} N.m/A (medido)")
 print(f"J₁ + J₂ = {J_total:.6e} kg.m²")
 
-# Razão entre inércias a partir dos zeros/polos
-"""
-J2/J1 = (ω_p/ω_z)^2 - 1
-"""
-razao_J = (w_p / w_z)**2 - 1.0
+# J2 obtido diretamente, usando J1 real (datasheet) — não há mais incógnita
+# a resolver via estrutura de zeros/polos.
+J2_real = J_total - J1_real_kgm2
 
-print(f"\nRazão: J₂/J₁ = (ω_p/ω_z)² - 1 = {razao_J:.6f}")
+print(f"\n--- PARÂMETROS IDENTIFICADOS (COM J1 e Kt REAIS) ---")
+print(f"J1 (Motor, datasheet) : {J1_real_kgm2:.6e} kg.m²")
+print(f"J2 (Inércia Ext, calc): {J2_real:.6e} kg.m²")
 
-# Resolver sistema linear:
-"""
-J1 + J2 = J_total
-J2 = razao_J * J1
+if J2_real <= 0:
+    print("⚠ ATENÇÃO: J2 calculado é <= 0. Isso indica inconsistência entre")
+    print("   H(0), Kt_real e J1_real_kgm2 — reveja a premissa de entrada em corrente")
+    print("   ou a qualidade do ajuste de sys_tf antes de prosseguir.")
 
-Substituindo:
+# Rigidez Torcional e Amortecimento, a partir do par de zeros complexos
+K_theta_calibrado = J2_real * (w_z**2)
+D_theta_calibrado = 2 * zeta_z * J2_real * w_z
 
-J1 + razao_J * J1 = J_total
-J1 * (1 + razao_J) = J_total
-"""
-
-J1_real = J_total / (1.0 + razao_J)
-J2_calibrado = J_total - J1_real
-
-# Rigidez Torcional
-K_theta_calibrado = J2_calibrado * (w_z**2)
-
-# Amortecimento
-D_theta_calibrado = 2 * zeta_z * J2_calibrado * w_z
-
-print(f"\n--- PARÂMETROS IDENTIFICADOS (SEM USAR Kt NEM DATASHEET) ---")
-print(f"J1 (Motor)       : {J1_real:.6e} kg.m²")
-print(f"J2 (Inércia Ext) : {J2_calibrado:.6e} kg.m²")
-print(f"K_theta (Rigidez): {K_theta_calibrado:.6f} N.m/rad")
-print(f"D_theta (Amort.) : {D_theta_calibrado:.6e} N.m.s/rad")
+print(f"K_theta (Rigidez)     : {K_theta_calibrado:.6f} N.m/rad")
+print(f"D_theta (Amort.)      : {D_theta_calibrado:.6e} N.m.s/rad")
 
 # =========================================================
-# Comparação com valor no TwinCAT
+# Checagem de consistência (diagnóstico, NÃO usado no cálculo acima)
 # =========================================================
+# A razão J2/J1 prevista pela estrutura ideal de duas massas é:
+#   J2/J1 = (ω_p/ω_z)² - 1
+# Comparamos com a razão obtida a partir de J1 e J2 reais. Se divergirem
+# muito, é sinal de dinâmica extra não capturada pelo modelo ideal
+# (backlash, zeros elétricos, etc. — ver discussões anteriores).
+razao_J_teorica = (w_p / w_z)**2 - 1.0
+razao_J_real = J2_real / J1_real_kgm2
 
-if J1_twin_gcm2:
-    print(f"\n--- COMPARAÇÃO COM DATASHEET ---")
-    print(
-        f"J1 (Datasheet)   : {J1_twin_gcm2} g·cm² = {J1_twin_kgm2:.6e} kg.m²")
-    print(f"J1 (Identificado): {J1_real:.6e} kg.m²")
-    print(f"Razão (Identificado / Datasheet): {J1_real / J1_twin_kgm2:.2f}x")
-    print(f"Erro absoluto: {abs(J1_real - J1_twin_kgm2):.6e} kg.m²")
-    print(
-        f"Erro relativo: {abs(J1_real - J1_twin_kgm2) / J1_twin_kgm2 * 100:.2f}%")
+print(f"\n--- CHECAGEM DE CONSISTÊNCIA (diagnóstico) ---")
+print(f"J₂/J₁ previsto pela estrutura ideal (ω_p/ω_z)² - 1: {razao_J_teorica:.4f}")
+print(f"J₂/J₁ obtido com J1 e Kt reais                    : {razao_J_real:.4f}")
+desvio_pct = abs(razao_J_teorica - razao_J_real) / razao_J_real * 100
+print(f"Desvio relativo entre as duas razões: {desvio_pct:.1f}%")
+if desvio_pct > 20:
+    print("⚠ Desvio significativo: o modelo ideal de duas massas pode não")
+    print("   capturar toda a dinâmica observada (ver zeros extras, backlash, etc.)")
 
-    # Análise: Se a razão é grande, significa que há Kt implícito
-    if J1_real / J1_twin_kgm2 > 10:
-        print(
-            f"\n⚠ ATENÇÃO: J1 identificado é {J1_real / J1_twin_kgm2:.0f}x maior que o datasheet!")
-        print(f"   Possível causa: Kt ≠ 1")
-
-        # Se a entrada é corrente (não torque), então:
-        """
-        H(0) = Kt / (J1 + J2)
-        Logo: Kt = H(0) * (J1_real + J2_real)
-        """
-        Kt_implicito = H_0 * (J1_real + J2_calibrado)
-        print(f"   Kt implícito (H(0) × J_total): {Kt_implicito:.6f}")
-
-        # Recalcular com J1 do datasheet
-        print(f"\n   Recalculando com J1 = datasheet e Kt implícito:")
-        J2_recalc = J2_calibrado  # Mantém a razão
-
-        # Se entrada é corrente: 
-        """
-        H(0) = Kt / (J1 + J2)
-        Kt = H(0) * (J1_twin_kgm2 + J2_recalc)
-        """
-        Kt_correto = H_0 * (J1_twin_kgm2 + J2_calibrado)
-        print(f"   K_t (estimado): {Kt_correto:.6f}")
-        print(f"   J1 (datasheet): {J1_twin_kgm2:.6e} kg.m²")
-        print(f"   J2 (recalc): {J2_calibrado:.6e} kg.m²")
-else:
-    pass
-
-num_fisico = [J2_calibrado, D_theta_calibrado, K_theta_calibrado]
-den_fisico = [J1_real * J2_calibrado, (J1_real + J2_calibrado) *
-            D_theta_calibrado, (J1_real + J2_calibrado) * K_theta_calibrado, 0.0]
-# SEM multiplicar por Kt (entrada é torque direto)
+num_fisico = [J2_real, D_theta_calibrado, K_theta_calibrado]
+den_fisico = [J1_real_kgm2 * J2_real, (J1_real_kgm2 + J2_real) *
+            D_theta_calibrado, (J1_real_kgm2 + J2_real) * K_theta_calibrado, 0.0]
+# Multiplicando por Kt_real, já que a entrada real do motor é corrente (A),
+# não torque direto — assim sys_fisico fica na mesma base de sys_tf/sys_frd
+num_fisico = [Kt_real * c for c in num_fisico]
 sys_fisico = ct.tf(num_fisico, den_fisico)
 
 # Criação do objeto FRD (Frequency Response Data)
@@ -242,12 +238,13 @@ sys_frd = ct.frd(
 # Plotar a comparação com o modelo otimizado pelo least_squares (sys_tf)
 plt.figure(figsize=(10, 6))
 ct.bode_plot(
-    [sys_frd, sys_tf],
+    [sys_frd,sys_tf, sys_fisico],
     omega=omega,
     dB=True,
     Hz=True,
     label=['Curva original',
-           'Modelo Ajustado (Least Squares)'],
+           'Modelo Ajustado (Least Squares)', 
+           'Modelo Físico'],
     legend_loc='lower left'
 )
 

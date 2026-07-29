@@ -3,11 +3,6 @@ ANÁLISE DE UM ÚNICO BODE
 
 Esse script tem como objetivo analisar um único Bode, carregando os dados de um arquivo CSV específico e estimando a função de transferência correspondente. Ele utiliza a biblioteca `control` para criar objetos de resposta em frequência (FRD) e realizar a otimização para ajustar os parâmetros da função de transferência.
 
-OBS: Todos os polos e zeros (reais e complexos) são parametrizados em função da
-frequência natural wn (rad/s), e não mais em função da constante de tempo tau.
-    - Termos reais:      (s/wn + 1)         em vez de (tau*s + 1), com wn = 1/tau
-    - Termos complexos:  (s^2/wn^2 + 2*zeta*s/wn + 1)  [já era feito assim]
-
 Autor: Edélio Gabriel Magalhães de Jesus
 Data: 2024-06-20
 
@@ -28,7 +23,7 @@ import os
 # ================================================================
 
 # Nome do arquivo CSV contendo os dados do Bode a ser analisado
-BODE_NAME_FILE = './bode_files_PAPU/Id_1_Vel_NC_kp_586_Tn_15__3.csv'
+BODE_NAME_FILE = './bode_files_PAPU/Id_1_Pos_without_oversampling_kp_10_Tn_0_20.csv'
 
 # Define qual parte do sistema deve ser analisada
 """
@@ -47,8 +42,8 @@ PARTE_DO_SISTEMA = 'Process'
 
 freq_natural_polos_comp = [800, 1100]
 freq_natural_zeros_comp = [800]
-freq_natural_polos_reais = [200]
-freq_natural_zeros_reais = [300]
+freq_natural_polos_reais = []
+freq_natural_zeros_reais = []
 
 # =========================================================
 # Número de polos e zeros estimados
@@ -164,14 +159,14 @@ for _, f in zip(range(n_zeros_reais), freq_natural_zeros_reais):
     x0 += [f]
 
 for _, f in zip(range(n_pares_zeros_complexos), freq_natural_zeros_comp):
-    x0 += [f, 0.5]
+    x0 += [f, 0.7]
 
 # Polos
 for _, f in zip(range(n_polos_reais), freq_natural_polos_reais):
     x0 += [f]
 
 for _, f in zip(range(n_pares_polos_complexos), freq_natural_polos_comp):
-    x0 += [f, 0.5]
+    x0 += [f, 0.7]
 
 # Montagem dos Limites (bounds)
 lower_bounds = [-np.inf]
@@ -179,17 +174,17 @@ upper_bounds = [ np.inf]
 
 # Zeros Reais (wn_z > 0, rad/s) e Complexos (wn_z > 0, zeta > 0)
 for _ in range(n_zeros_reais):
-    lower_bounds.append(1.0); upper_bounds.append(1e5)   # wn_z > 0 (rad/s)
+    lower_bounds.append(1.0); upper_bounds.append(20e3)   # wn_z > 0 (rad/s)
 for _ in range(n_pares_zeros_complexos):
-    lower_bounds.extend([1.0, 0.01])      # wn > 0 (rad/s), zeta > 0
-    upper_bounds.extend([1e5, 1.0])       # ajuste o teto conforme sua banda de interesse
+    lower_bounds.extend([1.0, 0.1])      # wn > 0 (rad/s), zeta > 0
+    upper_bounds.extend([2e3, 1.0])       # ajuste o teto conforme sua banda de interesse
 
 # Polos Reais (wn_p > 0, rad/s) e Complexos (wn_p > 0, zeta > 0)
 for _ in range(n_polos_reais):
-    lower_bounds.append(1.0); upper_bounds.append(1e5)   # wn_p > 0 (rad/s)
+    lower_bounds.append(1.0); upper_bounds.append(20e3)   # wn_p > 0 (rad/s)
 for _ in range(n_pares_polos_complexos):
-    lower_bounds.extend([1.0, 0.01])
-    upper_bounds.extend([1e5, 1.0])
+    lower_bounds.extend([1.0, 0.1])
+    upper_bounds.extend([2e3, 1.0])
 
 bounds = (lower_bounds, upper_bounds)
 
@@ -366,7 +361,6 @@ for p in ct.poles(sys_tf):
 # =============================================================================
 # Exportação da função de transferência para um arquivo JSON
 # =============================================================================
-
 num_list = [float(c) for c in sys_tf.num[0][0]]
 den_list = [float(c) for c in sys_tf.den[0][0]]
 
@@ -378,7 +372,7 @@ data_export = {
 
 _, nome_base = os.path.split(BODE_NAME_FILE)
 diretorio = 'tfs_json_PAPU'
-nome_arquivo = os.path.join(diretorio, f"TF_{nome_base}.json")
+nome_arquivo = os.path.join(diretorio, f"{PARTE_DO_SISTEMA}_TF_{nome_base}.json")
 
 with open(nome_arquivo, 'w') as f:
     json.dump(data_export, f, indent=4)
@@ -394,9 +388,7 @@ print(f'Função de transferência exportada para {nome_arquivo}')
 ct.bode_plot([sys_frd, sys_tf, sys_zpk], omega=omega, dB=True, Hz=True, legend_loc='lower left')
 plt.show()
 
-# -------------------- Plot com domínio expandido ------------------------------
-
-# -------------------- Plot com domínio expandido ------------------------------ #
+# -------------------- Plot com domínio expandido ------------------------------ 
 # Vetor de frequências original (dos dados medidos)
 omega_dados = sys_frd.omega
 
@@ -448,3 +440,21 @@ ax_phase.set_ylim(min(fase_tf_deg.min(), fase_zpk_deg.min()) - pad_fase,
 
 plt.tight_layout()
 plt.show()
+
+# ---- Plot dos diagramas com as margens -----------
+if PARTE_DO_SISTEMA == 'Open-Loop':
+    # Calcula as margens do FRD
+    gm, pm, wcg, wcp = ct.margin(sys_frd)
+    
+    # Verifica se os valores são inválidos (NaN) ou infinitos (sem cruzamento)
+    if np.isnan(gm) or np.isnan(pm) or np.isinf(gm) or np.isinf(pm):
+        print("Margens não encontradas ou infinitas no FRD. Plotando a Função de Transferência estimada...")
+        # Correção: Corrigido o aviso usando 'display_margins=True'
+        
+        ct.bode_plot(sys_tf, omega=omega_ext, dB=True, Hz=False, display_margins=True)
+        plt.show()
+    else:
+        print("Margens válidas encontradas no FRD. Plotando os dados medidos...")
+        # Correção: Corrigido o erro de digitação de 'display_margin' para 'display_margins'
+        ct.bode_plot(sys_frd, dB=True, Hz=True, display_margins=True)
+        plt.show()
