@@ -10,7 +10,7 @@ Refatorado para estrutura orientada a objetos com auxílio de IA.
 
 Uso:
 
-python scope_visualizer.py --data-dir "./scope_view_files" --var-filter "Velo" --setpoint "Velo=20.0" --output-dir "./scope_view_pngs"
+python scope_visualizer.py --data-dir "./scope_view_files" --var-filter "Velo" --setpoint "Velo=20.0" --output-dir "./scope_view_pngs" --regime-delay 2 --regime-window 10
 
 ou 
 
