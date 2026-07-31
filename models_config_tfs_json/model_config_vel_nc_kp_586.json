@@ -1,0 +1,19 @@
+{
+    "freq_natural_polos_comp": [600, 1000],
+    "freq_natural_zeros_comp": [800],
+    "freq_natural_polos_reais": [],
+    "freq_natural_zeros_reais": [],
+    "tem_polo_origem": true,
+    "tem_zero_origem": false,
+    "n_polos_reais": 0,
+    "n_zeros_reais": 0,
+    "n_pares_polos_complexos": 2,
+    "n_pares_zeros_complexos": 1,
+    "bounds": {
+        "wn_min": 1.0,
+        "wn_max": 20000.0,
+        "wn_max_complexo": 2000.0,
+        "zeta_min": 0.1,
+        "zeta_max": 1.0
+    }
+}
