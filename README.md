@@ -1,6 +1,6 @@
 # Tuning of the Adjustable Phase Undulator (APU) Control Loop
 
-Conjunto de scripts em Python para **identificação de sistemas** a partir de diagramas de Bode, usado na sintonia da malha de controle de um Adjustable Phase Undulator (APU/PAPU) — dados obtidos via TwinCAT (Beckhoff). O objetivo central é: partir de dados experimentais de resposta em frequência, ajustar uma função de transferência (FT) que os represente e estimar os ganhos ótimos para a malha de controle, em complementação à função de *autotuning* da fabricante, permitindo maior interpretabilidade do processo.
+Conjunto de scripts em Python para **identificação de sistemas** a partir de diagramas de Bode, usado na sintonia da malha de controle de um Adjustable Phase Undulator (APU) — dados obtidos via TwinCAT (Beckhoff). O objetivo central é: partir de dados experimentais de resposta em frequência, ajustar uma função de transferência (FT) que os represente e estimar os ganhos ótimos para a malha de controle, em complementação à função de *autotuning* da fabricante, permitindo maior interpretabilidade do processo.
 
 ---
 
