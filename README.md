@@ -57,8 +57,6 @@ cd Tuning-of-the-Adjustable-Phase-Undulator--APU--Control-Loop
 pip install -r requirements.txt
 ```
 
-> Se o repositório ainda não tiver um `requirements.txt`, as dependências principais usadas pelos scripts são: `control`, `numpy`, `pandas`, `matplotlib`, `scipy`, `optuna`.
-
 ---
 
 ## Fluxo completo
