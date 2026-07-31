@@ -38,7 +38,6 @@ A identificação física do sistema por um modelo aproximado de duas massas (`t
 ├── optuna_tf_identifier.py       # Ajuste da função de transferência via otimização de estrutura com Optuna (seleção por AICc)
 ├── tf_manual.py                  # Ajuste manual da função de transferência, baseado no método de extração sequencial de fatores
 ├── vector_fitting_identifier.py  # Ajuste da função de transferência via Vector Fitting
-├── aic.py                        # Cálculo do AICc para comparação objetiva entre modelos ajustados
 ├── methods_comparator.py         # Comparação dos erros RMS entre os ajustes obtidos pelos diferentes métodos
 ├── two_mass_identification.py    # Identificação dos parâmetros físicos do modelo aproximado de 2 massas (OBSOLETO)
 ├── time_domain_simulation.py     # Simulação da resposta no domínio do tempo a partir da FT ajustada
