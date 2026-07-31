@@ -7,7 +7,7 @@ Refatorado para estrutura orientada a objetos com auxílio de IA.
 
 Uso:
 
- python tf_identifier.py --bode-file "./bode_files_PAPU/Id_1_Vel_NC_kp_586_Tn_15__1.csv" --model-config "./models_config_tfs_json/model_config_vel_nc_kp_586.json" --system-part "Open-Loop" --output-dir "./tfs_json_PAPU" --plot-dir "./bodes_adjust_results"
+python tf_identifier.py --bode-file "./bode_files_PAPU/Id_1_Vel_NC_kp_586_Tn_15__1.csv" --model-config "./models_config_tfs_json/model_config_vel_nc_kp_586.json" --system-part "Open-Loop" --output-dir "./tfs_json_PAPU" --plot-dir "./bodes_adjust_results"
 """
 
 import argparse

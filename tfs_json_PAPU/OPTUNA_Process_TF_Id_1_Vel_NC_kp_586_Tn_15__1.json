@@ -1,0 +1,24 @@
+{
+    "num": [
+        8.276150134935368e-05,
+        0.03731361516942979
+    ],
+    "den": [
+        2.4412640735703463e-12,
+        2.704038946280789e-09,
+        4.583137904592678e-06,
+        0.002326841169580942,
+        1.0,
+        0.0
+    ],
+    "dt": 0,
+    "rms_error": 1.0203556340789466e-05,
+    "estrutura": {
+        "n_zeros_reais": 1,
+        "n_zeros_complexos": 0,
+        "n_polos_reais": 0,
+        "n_polos_complexos": 2,
+        "tem_zero_origem": false,
+        "tem_polo_origem": true
+    }
+}

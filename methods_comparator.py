@@ -14,8 +14,13 @@ Cada JSON pode guardar o erro final sob uma chave diferente:
   "rms_error_vector_fitting"   -> VF
 O script tenta ambas, nessa ordem.
 
+Além do prefixo (método), o nome do arquivo também pode ser filtrado por
+"parte_sistema" ("Process", "Open-Loop" ou "Close-Loop") e "variavel"
+("Vel" ou "Pos"), da mesma forma que o tunning_analyzer.py: como substrings
+(case-insensitive) do nome do arquivo, em qualquer posição.
+
 Uso:
-  python analise_erros_metodos.py --input-dir ./tfs_json_PAPU --output ./comparativo_rms.png
+python methods_comparator.py --input-dir ./tfs_json_PAPU --prefixes LS OPTUNA VF --system-part Open-Loop --variavel Vel --output ./tunning_results/comparativo_rms.png
 """
 
 import argparse
@@ -60,6 +65,13 @@ def extrair_prefixo(nome_arquivo: str) -> str:
     return nome_arquivo.split("_")[0].upper()
 
 
+def arquivo_corresponde(nome_arquivo: str, termo: Optional[str]) -> bool:
+    """True se `termo` for None/vazio (filtro não aplicado) ou se aparecer
+    como substring do nome do arquivo, case-insensitive -- mesma lógica de
+    correspondência usada pelo tunning_analyzer.py (glob com '*termo*')."""
+    return not termo or termo.lower() in nome_arquivo.lower()
+
+
 def extrair_rms(dados: dict, caminho: Path) -> Optional[float]:
     """Extrai o erro RMS de um dict de JSON já carregado, tentando as chaves
     conhecidas nessa ordem. Retorna None (e loga um aviso) se nenhuma bater."""
@@ -83,15 +95,29 @@ class ColetorErrosRMS:
     (case-insensitive) esteja nessa lista são processados -- os demais são
     ignorados silenciosamente (contabilizados e reportados no final). Se
     None, todos os arquivos .json da pasta são processados.
+
+    `parte_sistema` (ex.: "Process", "Open-Loop", "Close-Loop") e `variavel`
+    (ex.: "Vel", "Pos") filtram adicionalmente por substring (case-insensitive)
+    no nome do arquivo, na mesma lógica do tunning_analyzer.py. Se None/vazio,
+    o filtro correspondente não é aplicado.
     """
 
-    def __init__(self, input_dir: Union[str, Path], prefixos_desejados: Optional[List[str]] = None):
+    def __init__(
+        self,
+        input_dir: Union[str, Path],
+        prefixos_desejados: Optional[List[str]] = None,
+        parte_sistema: Optional[str] = None,
+        variavel: Optional[str] = None,
+    ):
         self.input_dir = Path(input_dir)
         self.prefixos_desejados = (
             {p.upper() for p in prefixos_desejados} if prefixos_desejados else None
         )
+        self.parte_sistema = parte_sistema
+        self.variavel = variavel
         self.erros_por_metodo: Dict[str, List[float]] = defaultdict(list)
         self.n_ignorados_prefixo = 0
+        self.n_ignorados_filtro = 0
 
     def coletar(self) -> "ColetorErrosRMS":
         arquivos_json = sorted(self.input_dir.glob("*.json"))
@@ -103,6 +129,13 @@ class ColetorErrosRMS:
 
             if self.prefixos_desejados is not None and prefixo not in self.prefixos_desejados:
                 self.n_ignorados_prefixo += 1
+                continue
+
+            if not (
+                arquivo_corresponde(caminho.name, self.parte_sistema)
+                and arquivo_corresponde(caminho.name, self.variavel)
+            ):
+                self.n_ignorados_filtro += 1
                 continue
 
             with open(caminho, "r") as f:
@@ -120,9 +153,17 @@ class ColetorErrosRMS:
                 "%d arquivo(s) ignorado(s) por não estarem na lista de prefixos: %s",
                 self.n_ignorados_prefixo, sorted(self.prefixos_desejados),
             )
+        if self.n_ignorados_filtro:
+            logger.info(
+                "%d arquivo(s) ignorado(s) por não corresponderem a system-part=%r / variavel=%r",
+                self.n_ignorados_filtro, self.parte_sistema, self.variavel,
+            )
 
         if not self.erros_por_metodo:
-            raise RuntimeError("Nenhum erro RMS pôde ser extraído dos JSONs encontrados (verifique os prefixos informados).")
+            raise RuntimeError(
+                "Nenhum erro RMS pôde ser extraído dos JSONs encontrados "
+                "(verifique os prefixos, --system-part e --variavel informados)."
+            )
 
         return self
 
@@ -246,6 +287,16 @@ def _parse_args() -> "argparse.Namespace":
         help="Lista de prefixos a varrer (ex.: --prefixes LS OPTUNA VF). "
         "Se omitido, processa todos os .json da pasta.",
     )
+    parser.add_argument(
+        "--system-part", type=str, default=None,
+        help="Filtra por parte do sistema, como substring do nome do arquivo "
+        "(ex.: 'Process', 'Open-Loop', 'Close-Loop'). Se omitido, não filtra.",
+    )
+    parser.add_argument(
+        "--variavel", type=str, default=None,
+        help="Filtra por variável, como substring do nome do arquivo "
+        "(ex.: 'Vel', 'Pos'). Se omitido, não filtra.",
+    )
     parser.add_argument("--output", type=str, default="./comparativo_rms_boxplot.png", help="Caminho do PNG de saída.")
     parser.add_argument("--linear-scale", action="store_true", help="Usa escala linear no eixo Y (padrão: log).")
     parser.add_argument("--show", action="store_true", help="Exibe o gráfico na tela além de salvar.")
@@ -255,7 +306,12 @@ def _parse_args() -> "argparse.Namespace":
 def main() -> None:
     args = _parse_args()
 
-    coletor = ColetorErrosRMS(args.input_dir, prefixos_desejados=args.prefixes).coletar()
+    coletor = ColetorErrosRMS(
+        args.input_dir,
+        prefixos_desejados=args.prefixes,
+        parte_sistema=args.system_part,
+        variavel=args.variavel,
+    ).coletar()
     coletor.logar_estatisticas()
     plotar_boxplots(coletor.erros_por_metodo, Path(args.output), log_scale=not args.linear_scale)
 
