@@ -23,11 +23,11 @@ O pipeline parte de um Bode experimental (magnitude + fase em função da frequ�
 ├── bode_files_PAPU/                         # Pasta dos bodes individuais já separados (um .csv por experimento)
 ├── bode_adjust_results/                     # Pasta dos resultados das funções de transferência ajustadas aos dados pelos métodos empregados
 ├── files/                                   # Pastas dos arquivos .csv brutos exportados do TwinCAT (múltiplos experimentos concatenados)
-├── models_config_tfs_json/                   # Pasta dos arquivos .json com as configurações de polos e zeros usadas pelos métodos manuais
-├── scope_view_files/                         # Pasta dos arquivos.csv brutos exportados do TwinCAT (experimentos de resposta a um step, em função do tempo)
-├── scope_view_results/                       # Pasta dos arquivos .png com os dados da resposta em frequência com estatísticas calculadas
-├── tfs_json_PAPU/                            # Pasta dos arquivos .json com os coeficientes das funções de transferência ajustadas
-├── tunning_results/                          # Pasta dos resultados do processo de tuning
+├── models_config_tfs_json/                  # Pasta dos arquivos .json com as configurações de polos e zeros usadas pelos métodos manuais
+├── scope_view_files/                        # Pasta dos arquivos.csv brutos exportados do TwinCAT (experimentos de resposta a um step, em função do tempo)
+├── scope_view_results/                      # Pasta dos arquivos .png com os dados da resposta em frequência com estatísticas calculadas
+├── tfs_json_PAPU/                           # Pasta dos arquivos .json com os coeficientes das funções de transferência ajustadas
+├── tunning_results/                         # Pasta dos resultados do processo de tuning
 ├── bode_separator.py                        # Script para separar o arquivo bruto dos experimentos de Bode
 ├── bode_visualizer.py                       # Script para visualização inicial dos experimentos de separados
 ├── methods_comparator.py                    # Script para comparar os erros RMS entre os ajustes obtidos
