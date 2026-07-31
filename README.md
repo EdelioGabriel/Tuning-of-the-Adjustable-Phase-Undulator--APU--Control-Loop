@@ -1,6 +1,10 @@
-# Tuning of the Adjustable Phase Undulator (APU) Control Loop — Identificação de Sistemas via Bode
+# Tuning of the Adjustable Phase Undulator (APU) Control Loop
 
-Conjunto de scripts em Python para **identificação de sistemas** a partir de diagramas de Bode, usado na sintonia da malha de controle de um Adjustable Phase Undulator (APU/PAPU) — obtidos via TwinCAT (Beckhoff). O objetivo central é: partir de dados experimentais de resposta em frequência, ajustar uma função de transferência (FT) que os represente, recuperar os parâmetros físicos do sistema mecânico e os ganhos ótimos para a malha de controle.
+Conjunto de scripts em Python para **identificação de sistemas** a partir de diagramas de Bode, usado na sintonia da malha de controle de um Adjustable Phase Undulator (APU/PAPU) — obtidos via TwinCAT (Beckhoff). O objetivo central é: partir de dados experimentais de resposta em frequência, ajustar uma função de transferência (FT) que os represente e estimar os ganhos ótimos para a malha de controle, em complementação à função de *autotuning* da fabricante, permitindo maior interpretabilidade do processo.
+
+´´´
+**Projeto desenvolvido durante as férias de verão de 2026, no Departamento Adjunto de Tecnologia do Centro Nacional de Pesquisa em Energia e Materiais (CNPEM), sob orientação de Rafael Batista Cardoso, Gerente do grupo de Automação e Robótica (ARO)**
+´´´´
 
 ---
 
@@ -9,7 +13,6 @@ Conjunto de scripts em Python para **identificação de sistemas** a partir de d
 O pipeline parte de um Bode experimental (magnitude + fase em função da frequência) e caminha em duas frentes complementares:
 
 1. **Identificação matemática** — ajustar uma função de transferência (polos/zeros) que reproduza a curva medida.
-2. **Identificação física** — a partir dessa FT, recuperar os parâmetros reais do sistema mecânico, modelado como duas massas (motor + carga) acopladas por um eixo com rigidez torcional.
 3. **Identificação dos ganhos ótimos** - análise dos diagramas de Bode para inferi a estabilidade do sistema em malha fechada a partir dos dados de malha aberta para, então, obter os ganhos que melhor sintonizem a malha do ondulador.
 ---
 
@@ -17,16 +20,25 @@ O pipeline parte de um Bode experimental (magnitude + fase em função da frequ�
 
 ```
 .
-├── files/                                   # CSV bruto exportado do TwinCAT (múltiplos experimentos concatenados)
-├── bode_files_PAPU/                         # Bodes individuais já separados (um .csv por experimento)
-├── tfs_json_PAPU/                           # Funções de transferência ajustadas, exportadas em .json
-├── bodes_separation.py                      # Separa o CSV bruto em arquivos individuais por experimento
-├── optuna_transfer_function_analysis.py     # Ajuste de FT com busca automática de estrutura (Optuna + AICc)
-├── system_transfer_function.py              # Ajuste de FT com estrutura de polos/zeros fixada manualmente
-├── tf_manual.py                             # Extração manual sequencial de fatores (polos/zeros) por resíduo
-├── aic.py                                   # Cálculo do AICc de uma FT ajustada frente aos dados originais
-├── two_mass_identification.py               # Identificação física: J1, J2, K_θ, D_θ
-└── visualization_bodes.py                   # Plot comparativo de todos os Bodes, com margens de ganho e fase
+├── bode_files_PAPU/                         # Pasta dos bodes individuais já separados (um .csv por experimento)
+├── bode_adjust_results/                     # Pasta dos resultados das funções de transferência ajustadas aos dados pelos métodos empregados
+├── files/                                   # Pastas dos arquivos .csv brutos exportados do TwinCAT (múltiplos experimentos concatenados)
+├── models_config_tfs_json/                   # Pasta dos arquivos .json com as configurações de polos e zeros usadas pelos métodos manuais
+├── scope_view_files/                         # Pasta dos arquivos.csv brutos exportados do TwinCAT (experimentos de resposta a um step, em função do tempo)
+├── scope_view_results/                       # Pasta dos arquivos .png com os dados da resposta em frequência com estatísticas calculadas
+├── tfs_json_PAPU/                            # Pasta dos arquivos .json com os coeficientes das funções de transferência ajustadas
+├── tunning_results/                          # Pasta dos resultados do processo de tuning
+├── bode_separator.py                        # Script para separar o arquivo bruto dos experimentos de Bode
+├── bode_visualizer.py                       # Script para visualização inicial dos experimentos de separados
+├── methods_comparator.py                    # Script para comparar os erros RMS entre os ajustes obtidos
+├── optuna_tf_identifier.py                  # Script para realizar o ajuste da função de transferência via otimização com Optuna
+├── scope_visualizer.py                      # Script para gerar os plots dos dados da resposta so step
+├── tf_identifier.py                         # Script para ajuste da função de tranfereência via Mínimos Quadrados Não-Lineares (do scipy)
+├── tf_manual.py                             # Script para ajuste manual da função de tranferência, baseado no método de extração de fatores mínimos
+├── time_domain_simulation.py                # Script para simulação da resposta no domínio do tempo
+├── tunning_analyzer                         # Script para analizar os resultados do tuning
+├── two_mass_identification.py               # Script para realizar a identificação dos parâmetros físicos d modelo aproximado (OBSOLETO)
+├── vector_fitting_identifier.py             # Script para ajustar a função de transferência via Vector Fitting
 ```
 ## Instalação
 
