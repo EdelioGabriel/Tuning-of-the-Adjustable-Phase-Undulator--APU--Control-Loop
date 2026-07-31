@@ -7,7 +7,7 @@ Refatorado para estrutura orientada a objetos com auxílio de IA.
 
 Uso:
 
- python tf_identifier.py --bode-file "./bode_files_PAPU/Id_1_Vel_NC_kp_586_Tn_15__1.csv" --model-config "./models_config_tfs_json/model_config_vel_nc_kp_586.json" --system-part "Open-Loop" --output-dir "./tfs_json_PAPU" --plot-dir "./bodes_pngs"
+ python tf_identifier.py --bode-file "./bode_files_PAPU/Id_1_Vel_NC_kp_586_Tn_15__1.csv" --model-config "./models_config_tfs_json/model_config_vel_nc_kp_586.json" --system-part "Open-Loop" --output-dir "./tfs_json_PAPU" --plot-dir "./bodes_adjust_results"
 """
 
 import argparse
@@ -220,6 +220,14 @@ class TransferFunctionModel:
             lines.append(f"Polo Complexo {i+1}: wn = {wn_p:.2f} rad/s | zeta = {zp:.4f}")
         return "\n".join(lines)
 
+    def rms_error(self) -> float:
+        """Erro RMS do ajuste final, calculado a partir do result.cost do
+        último fit(). result.fun concatena [erro_real, erro_imag], por isso
+        o número de amostras é len(result.fun) // 2."""
+        self._check_fitted()
+        n_amostras = len(self.result.fun) // 2
+        return float(np.sqrt(2 * self.result.cost / n_amostras))
+
     def to_json_dict(self) -> dict:
         """Coeficientes Num/Den da TF ajustada, prontos para exportação em JSON."""
         sys_tf = self.to_tf()
@@ -227,6 +235,7 @@ class TransferFunctionModel:
             "num": [float(c) for c in sys_tf.num[0][0]],
             "den": [float(c) for c in sys_tf.den[0][0]],
             "dt": sys_tf.dt if sys_tf.dt is not None else 0,
+            "rms_error": self.rms_error(),
         }
 
     # ---------- Métodos internos ----------

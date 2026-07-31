@@ -1,0 +1,8 @@
+{
+    "n_polos_reais": 0,
+    "n_pares_polos_complexos": 2,
+    "tem_polo_origem": true,
+    "max_iteracoes": 100,
+    "tolerancia": 1e-3,
+    "forcar_passividade": false
+}

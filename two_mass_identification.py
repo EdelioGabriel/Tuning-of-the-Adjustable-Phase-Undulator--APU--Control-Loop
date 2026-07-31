@@ -32,9 +32,9 @@ Kt_real = 0.22
 # Leitura do arquivo
 # =========================================================
 
-NOME_ARQUIVO = "./tfs_json_PAPU/Process_TF_Id_1_Pos_without_oversampling_kp_10_Tn_0_20.csv.json"
+NOME_ARQUIVO = "./tfs_json_PAPU/VF_process_TF_Id_1_Vel_NC_kp_586_Tn_15__1.csv.json"
 
-BODE_NAME_FILE = "./bode_files_PAPU/Id_1_Pos_without_oversampling_kp_10_Tn_0_20.csv"
+BODE_NAME_FILE = "./bode_files_PAPU/Id_1_Vel_NC_kp_586_Tn_15__1.csv"
 
 try:
     with open(NOME_ARQUIVO, 'r') as arquivo:
@@ -46,6 +46,8 @@ try:
 
 except FileNotFoundError:
     raise FileNotFoundError(f"Arquivo '{NOME_ARQUIVO}' não encontrado.")
+
+print(ct.minreal(sys_tf, verbose=True))
 
 # =========================================================
 # Extração de polos/zeros complexos do modelo identificado (sys_tf)
@@ -154,12 +156,15 @@ try:
     H_0 = ct.dcgain(sys_tf)
 
     if np.isinf(H_0):
+        print(H_0)
         print("Polo na origem detectado.")
         print("Calculando ganho DC da FT de velocidade (s·G(s)).")
 
         sys_vel = s * sys_tf
-        H_0 = ct.dcgain(sys_vel)
+        sys_vel = ct.minreal(sys_vel, verbose=True)
 
+        H_0 = ct.dcgain(sys_vel)
+        print(H_0)
     else:
         print("Modelo sem polo na origem.")
 
@@ -217,8 +222,8 @@ print(f"J₂/J₁ obtido com J1 e Kt reais                    : {razao_J_real:.4
 desvio_pct = abs(razao_J_teorica - razao_J_real) / razao_J_real * 100
 print(f"Desvio relativo entre as duas razões: {desvio_pct:.1f}%")
 if desvio_pct > 20:
-    print("⚠ Desvio significativo: o modelo ideal de duas massas pode não")
-    print("   capturar toda a dinâmica observada (ver zeros extras, backlash, etc.)")
+    print("Desvio significativo: o modelo ideal de duas massas pode não")
+    print("capturar toda a dinâmica observada (ver zeros extras, backlash, etc.)")
 
 num_fisico = [J2_real, D_theta_calibrado, K_theta_calibrado]
 den_fisico = [J1_real_kgm2 * J2_real, (J1_real_kgm2 + J2_real) *

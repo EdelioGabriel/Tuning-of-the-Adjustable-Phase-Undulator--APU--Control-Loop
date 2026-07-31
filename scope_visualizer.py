@@ -10,11 +10,11 @@ Refatorado para estrutura orientada a objetos com auxílio de IA.
 
 Uso:
 
-python scope_visualizer.py --data-dir "./scope_view_files" --var-filter "Velo" --setpoint "Velo=20.0" --output-dir "./scope_view_pngs" --regime-delay 2 --regime-window 10
+python scope_visualizer.py --data-dir "./scope_view_files" --var-filter "Velo" --setpoint "Velo=20.0" --output-dir "./scope_view_results" --regime-delay 2 --regime-window 10
 
 ou 
 
-python scope_visualizer.py --data-dir "./scope_view_files" --var-filter "Velo" --var-filter "Pos" --setpoint "Velo=10.0" --setpoint "Pos=5.0" --output-dir "./scope_view_pngs"
+python scope_visualizer.py --data-dir "./scope_view_files" --var-filter "Velo" --var-filter "Pos" --setpoint "Velo=10.0" --setpoint "Pos=5.0" --output-dir "./scope_view_results"
 """
 
 import argparse

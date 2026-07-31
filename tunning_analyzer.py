@@ -89,7 +89,7 @@ class TuningAnalyzer:
         parte_do_sistema: str = "open-loop",
         variavel: str = "",
         alvo_mg_db: float = 10.0,
-        limite_desvio_pct: float = 0.10,
+        limite_desvio_pct: float = 0.10,    
         omega_vetor: Optional[np.ndarray] = None,
     ):
         self.data_dir = Path(data_dir)

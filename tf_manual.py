@@ -3,13 +3,16 @@ IDENTIFICAÇÃO MANUAL POR EXTRAÇÃO SEQUENCIAL DE FATORES (método Nise)
 
 Diferente dos scripts de ajuste automático (least_squares / Optuna), aqui a ideia
 é: você propõe um fator (polo, zero, par complexo, etc.), o script subtrai a
-contribuição dele dos dados MEDIDOS, e mostra o resíduo (o que ainda falta
+contribuição dele dos dados medidos, e mostra o resíduo (o que ainda falta
 explicar). Você repete isso, fator por fator, até o resíduo virar ruído plano.
 
 Esse método trabalha direto em cima dos dados brutos do Bode -- não depende de
 nenhuma função de transferência já ajustada por outro script.
 
 Autor: Edélio Gabriel Magalhães de Jesus
+
+Referência: NISE, Norman S.; DA SILVA, Fernando Ribeiro. Engenharia de sistemas de controle. LTC, 2002.
+
 Desenvolvido com auxílio de Inteligência Artificial
 """
 
@@ -21,13 +24,17 @@ import io
 import json
 from functools import reduce
 import operator
+import os
+
+BODE_NAME_FILE = './bode_files_PAPU/Id_1_Pos_without_oversampling_kp_10_Tn_0_20.csv'
+PARTE_DO_SISTEMA = 'Open-Loop'   # 'Process', 'Open-Loop' ou 'Close-Loop'
+DIRETORIO = './tfs_json_PAPU'
+_, NOME_BASE = os.path.split(BODE_NAME_FILE)
+CAMINHO_JSON = f'{DIRETORIO}./MANUAL_{PARTE_DO_SISTEMA.lower()}_TF_{NOME_BASE}.json'
 
 # =========================================================
 # 1. Criação do objeto FRD a partir de um arquivo CSV
 # =========================================================
-
-BODE_NAME_FILE = './bode_files_PAPU/Id_1_Pos_without_oversampling_kp_10_Tn_0_20.csv'
-PARTE_DO_SISTEMA = 'Process'   # 'Process', 'Open-Loop' ou 'Close-Loop'
 
 def carregar_dados(arquivo):
     with open(arquivo, 'r') as f:
@@ -63,23 +70,8 @@ sys_frd = ct.frd(
 # Magnitude: 'gain' já vem em dB direto do CSV, então usamos como está
 mag_db_dados = gain
 
-# Fase: desembrulhada (unwrap) para ficar contínua -- a quebra brusca que
-# aparece no CSV é artefato de display do TwinCAT, não um evento físico
+# Fase: desembrulhada (unwrap) para ficar contínua 
 fase_deg_dados = np.rad2deg(np.unwrap(phase_rad))
-
-def achar_vale(omega, mag_db, f_baixo, f_alto):
-    """Acha a frequência do mínimo local de magnitude entre f_baixo e f_alto."""
-    mask = (omega >= f_baixo) & (omega <= f_alto)
-    idx_local = np.argmin(mag_db[mask])
-    omega_sub = omega[mask]
-    mag_sub = mag_db[mask]
-    return omega_sub[idx_local], mag_sub[idx_local]
-
-f_vale1, mag_vale1 = achar_vale(omega_dados, mag_db_dados, 638, 1122)
-f_vale2, mag_vale2 = achar_vale(omega_dados, mag_db_dados, 1122, 1547)
-
-print(f"Vale entre 638 e 1122: f = {f_vale1:.1f} rad/s, mag = {mag_vale1:.1f} dB")
-print(f"Vale entre 1122 e 1547: f = {f_vale2:.1f} rad/s, mag = {mag_vale2:.1f} dB")
 
 # =========================================================
 # 3. Fábrica de fatores candidatos (cada um retorna H(jw) complexo)
@@ -115,7 +107,7 @@ def residuo(omega, mag_db_orig, fase_deg_orig, fatores):
     """
     fatores: lista de dicts, ex:
         [{'tipo': 'polo_quad', 'wn': 1000, 'zeta': 0.95}, ...]
-    Retorna o resíduo (o que ainda falta explicar) em dB e graus,
+    Retorna o resíduo em dB e graus,
     comparado contra os dados medidos (mag_db_orig, fase_deg_orig).
     """
     H_total = np.ones_like(omega, dtype=complex)
@@ -214,7 +206,7 @@ def plot_zoom_ressonancias(omega, mag_db, fase_deg, freqs, meia_largura_oitavas=
         ax_mag.set_ylabel('Magnitude (dB)')
         ax_mag.set_title(f'Zoom bruto em torno de {f} rad/s ({fmin:.0f}–{fmax:.0f} rad/s)', fontsize=9)
         ax_mag.grid(True, which='both')
-
+        
         ax_fase.semilogx(omega[mask], fase_deg[mask], marker='o', markersize=3)
         ax_fase.axvline(f, color='red', linestyle='--', linewidth=1)
         ax_fase.set_ylabel('Fase (graus)')
@@ -332,7 +324,6 @@ resultado = {
     'dt': 0,
 }
 
-CAMINHO_JSON = f'./tf_{PARTE_DO_SISTEMA.lower()}.json'
 with open(CAMINHO_JSON, 'w', encoding='utf-8') as f:
     json.dump(resultado, f, indent=4, ensure_ascii=False)
 
