@@ -43,6 +43,7 @@ A identificação física do sistema por um modelo aproximado de duas massas (`t
 ├── time_domain_simulation.py     # Simulação da resposta no domínio do tempo a partir da FT ajustada
 ├── scope_visualizer.py           # Plots dos dados de resposta ao step (scope)
 ├── tunning_analyzer.py           # Análise dos resultados do processo de tuning
+├── plot_style.py                 # Padroniza as configurações de plotagem
 ```
 
 ---
