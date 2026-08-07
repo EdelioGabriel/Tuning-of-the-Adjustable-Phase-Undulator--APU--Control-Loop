@@ -26,6 +26,10 @@ import control as ct
 import matplotlib.pyplot as plt
 import numpy as np
 
+from plot_style import apply_style, clean_grid, savefig_hq, FIGSIZE_BODE, FIGSIZE_SINGLE, standardize_bode_axes, set_box_aspect
+
+apply_style()
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
@@ -216,33 +220,37 @@ class TuningAnalyzer:
             )
 
     def _plot_scenarios(self, output_dir: Path, base_path: Path) -> None:
-        output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir.mkdir(parents=True, exist_ok=True)
 
-        for s in self.scenarios:
-            ct.bode_plot(
-                s.sys_final, omega=self.omega_vetor, dB=True, Hz=False,
-                label=f"Modelo {s.nome}", display_margins=True,
-            )
-            plt.suptitle(f"Comparative Bode Plot - {s.nome}")
-            safe_nome = s.nome.split(" ")[0]
-            out = f"{base_path}_DOMINIO_DADOS_{safe_nome}.png"
-            plt.savefig(out)
-            logger.info("Saved %s", out)
-            plt.close()
+            for s in self.scenarios:
+                cplt = ct.bode_plot(
+                    s.sys_final, omega=self.omega_vetor, dB=True, Hz=False,
+                    label=s.nome, display_margins="overlay",   # única curva -> overlay
+                )
+                fig = cplt.figure
+                fig.set_size_inches(*FIGSIZE_BODE)
+                standardize_bode_axes(fig)
+                fig.suptitle(f"Comparative Bode Plot — {s.nome}")
+                safe_nome = s.nome.split(" ")[0]
+                out = f"{base_path}_DATA_DOMAIN_{safe_nome}.png"
+                savefig_hq(out, fig)
+                logger.info("Saved %s", out)
+                plt.close(fig)
 
     def _plot_all_models(self, output_dir: Path, base_path: Path) -> None:
-        plt.figure(figsize=(10, 5))
-        for i, tf in enumerate(self.sys_tfs, 1):
-            ct.bode_plot(
-                tf, omega=self.omega_vetor, dB=True, Hz=False,
-                label=f"Modelo {i}", display_margins=True,
-            )
-        plt.legend()
-        plt.suptitle("Comparação de Resposta de Frequência dos Modelos Carregados")
-        out = f"{base_path}_TODOS_MODELOS.png"
-        plt.savefig(out)
+        cplt = ct.bode_plot(
+            self.sys_tfs, omega=self.omega_vetor, dB=True, Hz=False,
+            label=[f"Model {i}" for i in range(1, len(self.sys_tfs) + 1)],
+            display_margins=True,   # múltiplas curvas -> "overlay" não é suportado aqui
+        )
+        fig = cplt.figure
+        fig.set_size_inches(*FIGSIZE_BODE)
+        standardize_bode_axes(fig)
+        fig.suptitle("Frequency Response Comparison — All Loaded Models")
+        out = f"{base_path}_ALL_MODELS.png"
+        savefig_hq(out, fig)
         logger.info("Saved %s", out)
-        plt.close()
+        plt.close(fig)
 
 
 def _parse_args() -> "argparse.Namespace":

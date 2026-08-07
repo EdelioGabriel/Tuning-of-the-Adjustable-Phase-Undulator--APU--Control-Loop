@@ -38,6 +38,10 @@ import optuna
 import pandas as pd
 import scipy.optimize as opt
 
+from plot_style import apply_style, savefig_hq, FIGSIZE_BODE, standardize_bode_axes
+
+apply_style()
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -464,7 +468,7 @@ class StructureSearcher:
 
     def search(self, n_trials: int = 500, n_jobs: int = -1, show_progress_bar: bool = True) -> StructureConfig:
         """Executa a busca de estrutura e retorna a melhor StructureConfig."""
-        sampler = optuna.samplers.TPESampler(seed=self.seed)
+        sampler = optuna.samplers.TPESampler(seed=self.seed, multivariate=True, group=True)
         self.study = optuna.create_study(
             direction="minimize", sampler=sampler, study_name="polos_zeros_aicc_wn",
         )
@@ -616,20 +620,23 @@ class BodeStructureIdentifier:
         return json_path
 
     def _plot(self, plot_dir: Path) -> None:
-        plot_dir.mkdir(parents=True, exist_ok=True)
-        out = plot_dir / f"{self._base_output_name()}.png"
+            plot_dir.mkdir(parents=True, exist_ok=True)
+            out = plot_dir / f"{self._base_output_name()}.png"
 
-        sys_tf = self.model.to_tf()
-        sys_zpk = self.model.to_zpk()
+            sys_tf = self.model.to_tf()
+            sys_zpk = self.model.to_zpk()
 
-        ct.bode_plot(
-            [self.sys_frd, sys_tf, sys_zpk], omega=self.omega, dB=True, Hz=True,
-            label=["sys_frd", "sys_tf", "sys_zpk"], legend_loc="lower left",
-        )
-        plt.suptitle("Comparative Bode Plot")
-        plt.savefig(out)
-        logger.info("Saved %s", out)
-        plt.close()
+            cplt = ct.bode_plot(
+                [self.sys_frd, sys_tf, sys_zpk], omega=self.omega, dB=True, Hz=False,
+                label=["Measured (FRD)", "Estimated TF", "Estimated ZPK"], legend_loc="lower left",
+            )
+            fig = cplt.figure
+            fig.set_size_inches(*FIGSIZE_BODE)
+            standardize_bode_axes(fig)
+            fig.suptitle("Comparative Bode Plot")
+            savefig_hq(out, fig)
+            logger.info("Saved %s", out)
+            plt.close(fig)
 
 
 # =============================================================================

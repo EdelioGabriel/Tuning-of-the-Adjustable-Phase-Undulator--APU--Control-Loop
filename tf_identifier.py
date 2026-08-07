@@ -24,6 +24,10 @@ import numpy as np
 import scipy.optimize as opt
 import pandas as pd
 
+from plot_style import apply_style, clean_grid, savefig_hq, FIGSIZE_BODE, FIGSIZE_SINGLE, standardize_bode_axes, set_box_aspect
+
+apply_style()
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
@@ -434,15 +438,18 @@ class FRFIdentifier:
         self._plot_com_margens(base_path, sys_tf, omega_ext)
 
     def _plot_dominio_dados(self, base_path: Path, sys_tf, sys_zpk) -> None:
-        ct.bode_plot(
-            [self.sys_frd, sys_tf, sys_zpk], omega=self.omega, dB=True, Hz=True,
-            label=["sys_frd", "sys_tf", "sys_zpk"], legend_loc="lower left",
-        )
-        plt.suptitle("Comparative Bode Plot")
-        out = f"{base_path}_DOMINIO_DADOS.png"
-        plt.savefig(out)
-        logger.info("Saved %s", out)
-        plt.close()
+            cplt = ct.bode_plot(
+                [self.sys_frd, sys_tf, sys_zpk], omega=self.omega, dB=True, Hz=False,
+                label=["Measured (FRD)", "Estimated TF", "Estimated ZPK"], legend_loc="lower left",
+            )
+            fig = cplt.figure
+            fig.set_size_inches(*FIGSIZE_BODE)
+            standardize_bode_axes(fig)
+            fig.suptitle("Comparative Bode Plot")
+            out = f"{base_path}_DATA_DOMAIN.png"
+            savefig_hq(out, fig)
+            logger.info("Saved %s", out)
+            plt.close(fig)
 
     def _plot_dominio_expandido(self, base_path: Path, sys_tf, sys_zpk) -> np.ndarray:
         omega_dados = self.sys_frd.omega
@@ -458,37 +465,33 @@ class FRFIdentifier:
         fase_tf_deg = np.rad2deg(np.unwrap(np.angle(resp_tf.frdata[0, 0])))
         fase_zpk_deg = np.rad2deg(np.unwrap(np.angle(resp_zpk.frdata[0, 0])))
 
-        fig, (ax_mag, ax_phase) = plt.subplots(2, 1, sharex=True, figsize=(8, 6))
+        fig, (ax_mag, ax_phase) = plt.subplots(2, 1, sharex=True, figsize=FIGSIZE_BODE)
 
-        ax_mag.semilogx(omega_dados, 20 * np.log10(np.abs(self.frdata)), "o", label="Dados (FRD)", markersize=4)
-        ax_mag.semilogx(omega_ext, mag_tf_db, label="Modelo TF")
-        ax_mag.semilogx(omega_ext, mag_zpk_db, "--", label="Modelo ZPK")
+        ax_mag.semilogx(omega_dados, 20 * np.log10(np.abs(self.frdata)), "o", label="Data (FRD)", markersize=4)
+        ax_mag.semilogx(omega_ext, mag_tf_db, label="TF Model")
+        ax_mag.semilogx(omega_ext, mag_zpk_db, "--", label="ZPK Model")
         ax_mag.set_ylabel("Magnitude (dB)")
         ax_mag.legend()
-        ax_mag.grid(True, which="both")
+        clean_grid(ax_mag)
+        set_box_aspect(ax_mag)
 
         ax_phase.semilogx(omega_dados, np.rad2deg(np.unwrap(np.angle(self.frdata))), "o", markersize=4)
         ax_phase.semilogx(omega_ext, fase_tf_deg)
         ax_phase.semilogx(omega_ext, fase_zpk_deg, "--")
-        ax_phase.set_ylabel("Fase (graus)")
-        ax_phase.set_xlabel("Frequência (rad/s)")
-        ax_phase.grid(True, which="both")
+        ax_phase.set_ylabel("Phase (deg)")
+        ax_phase.set_xlabel("Frequency (rad/s)")
+        clean_grid(ax_phase)
+        set_box_aspect(ax_phase)
 
         pad_mag, pad_fase = 5, 15
-        ax_mag.set_ylim(
-            min(mag_tf_db.min(), mag_zpk_db.min()) - pad_mag,
-            max(mag_tf_db.max(), mag_zpk_db.max()) + pad_mag,
-        )
-        ax_phase.set_ylim(
-            min(fase_tf_deg.min(), fase_zpk_deg.min()) - pad_fase,
-            max(fase_tf_deg.max(), fase_zpk_deg.max()) + pad_fase,
-        )
+        ax_mag.set_ylim(min(mag_tf_db.min(), mag_zpk_db.min()) - pad_mag, max(mag_tf_db.max(), mag_zpk_db.max()) + pad_mag)
+        ax_phase.set_ylim(min(fase_tf_deg.min(), fase_zpk_deg.min()) - pad_fase, max(fase_tf_deg.max(), fase_zpk_deg.max()) + pad_fase)
 
-        plt.tight_layout()
-        out = f"{base_path}_DOMINIO_EXPANDIDO.png"
-        plt.savefig(out)
+        fig.tight_layout()
+        out = f"{base_path}_EXPANDED_DOMAIN.png"
+        savefig_hq(out, fig)
         logger.info("Saved %s", out)
-        plt.close()
+        plt.close(fig)
 
         return omega_ext
 
@@ -499,19 +502,19 @@ class FRFIdentifier:
         gm, pm, wcg, wcp = ct.margin(self.sys_frd)
 
         if np.isnan(gm) or np.isnan(pm) or np.isinf(gm) or np.isinf(pm):
-            logger.info("Margens não encontradas ou infinitas no FRD. Plotando a TF estimada...")
-            ct.bode_plot(sys_tf, omega=omega_ext, dB=True, Hz=False, display_margins=True)
-            plt.suptitle("Estimated Transfer Function Bode Plot")
-            out = f"{base_path}_DOMINIO_EXPANDIDO_COM_MARGENS.png"
+            cplt = ct.bode_plot(sys_tf, omega=omega_ext, dB=True, Hz=False, display_margins="overlay")
+            cplt.figure.suptitle("Estimated Transfer Function Bode Plot")
+            out = f"{base_path}_EXPANDED_DOMAIN_WITH_MARGINS.png"
         else:
-            logger.info("Margens válidas encontradas no FRD. Plotando os dados medidos...")
-            ct.bode_plot(self.sys_frd, dB=True, Hz=True, display_margins=True)
-            plt.suptitle("Transfer Function Bode Plot")
-            out = f"{base_path}_DOMINIO_DADOS_COM_MARGENS.png"
+            cplt = ct.bode_plot(self.sys_frd, dB=True, Hz=False, display_margins="overlay")
+            cplt.figure.suptitle("Transfer Function Bode Plot")
+            out = f"{base_path}_DATA_DOMAIN_WITH_MARGINS.png"
 
-        plt.savefig(out)
+        cplt.figure.set_size_inches(*FIGSIZE_BODE)
+        standardize_bode_axes(cplt.figure)
+        savefig_hq(out, cplt.figure)
         logger.info("Saved %s", out)
-        plt.close()
+        plt.close(cplt.figure)
 
 
 # =============================================================================

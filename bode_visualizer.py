@@ -8,7 +8,7 @@ Refatorado para estrutura orientada a objetos com auxílio de IA.
 
 Uso:
 
-python bode_visualizer.py --data-dir "./bode_files_PAPU/ --glob "*Vel*.csv" --system-part "Open-Loop" --output-dir "./bodes_pngs" --title "Comparative Bode Plot - Before tunning"
+python bode_visualizer.py --data-dir "./bode_files_PAPU/" --glob "*Vel*.csv" --system-part "Open-Loop" --output-dir "./bode_visualizer_results" --title "Comparative Bode Plot - Before tunning"
 """
 
 import argparse
@@ -22,6 +22,10 @@ import control as ct
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from plot_style import apply_style, clean_grid, standardize_bode_axes, savefig_hq, FIGSIZE_BODE, FIGSIZE_SINGLE, COLOR_CYCLE, set_box_aspect
+
+apply_style()
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -40,7 +44,7 @@ class BodeVisualizer:
             system_part="Open-Loop",
             sort_param="kp",
         )
-        viz.run(output_dir="./bodes_pngs", title="Comparative Bode Plot")
+        viz.run(output_dir="./bode_visualizer_results", title="Comparative Bode Plot")
     """
 
     def __init__(
@@ -163,35 +167,96 @@ class BodeVisualizer:
         self._systems, self._labels = (list(t) for t in zip(*pares_ordenados))
 
     def _plot_and_save(self, output_dir: Path, title: str) -> Path:
-        output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir.mkdir(parents=True, exist_ok=True)
 
-        ct.bode_plot(
-            self._systems, dB=True, deg=True, label=self._labels, display_margins=True
-        )
+            same_freqs = self._all_frequencies_match()
 
-        handles, all_labels = plt.gcf().axes[0].get_legend_handles_labels()
+            if same_freqs:
+                margins_mode = "overlay" if len(self._systems) == 1 else True
+                cplt = ct.bode_plot(
+                    self._systems, dB=True, Hz=False, deg=True,
+                    label=self._labels, display_margins=margins_mode,
+                )
+                fig = cplt.figure
+                mag_ax, phase_ax = fig.axes[0], fig.axes[1]
+                standardize_bode_axes(fig)
+            else:
+                logger.info(
+                    "Sistemas com vetores de frequência diferentes detectados; "
+                    "plotando manualmente com eixos compartilhados."
+                )
+                fig, (mag_ax, phase_ax) = plt.subplots(2, 1, sharex=True, figsize=FIGSIZE_BODE)
 
-        by_label = {}
-        for h, l in zip(handles, all_labels):
-            if l in self._labels and l not in by_label:
-                by_label[l] = h
+                for i, (sys_frd, nome) in enumerate(zip(self._systems, self._labels)):
+                    color = COLOR_CYCLE[i % len(COLOR_CYCLE)]
+                    omega = sys_frd.omega  # rad/s
+                    resp = sys_frd.frdata[0, 0, :]
+                    mag_db = 20 * np.log10(np.abs(resp))
+                    phase_deg = np.unwrap(np.angle(resp)) * 180 / np.pi
 
-        if plt.gcf().axes[0].legend_ is not None:
-            plt.gcf().axes[0].legend_.remove()
+                    mag_ax.semilogx(omega, mag_db, color=color, label=nome)
+                    phase_ax.semilogx(omega, phase_deg, color=color, label=nome)
 
-        plt.gcf().legend(
-            by_label.values(), by_label.keys(), loc="center left", bbox_to_anchor=(1.02, 0.5)
-        )
-        plt.subplots_adjust(right=0.75)
-        plt.suptitle(title, y=0.98)
+                    mag_ax.set_ylabel("Magnitude [dB]")
+                    phase_ax.set_ylabel("Phase [deg]")
+                    phase_ax.set_xlabel("Frequency [rad/s]")
+                    clean_grid(mag_ax)
+                    clean_grid(phase_ax)
+                    set_box_aspect(mag_ax)
+                    set_box_aspect(phase_ax)
 
-        safe_glob = re.sub(r"[^A-Za-z0-9._-]+", "_", self.file_glob).strip("._")
-        output_path = output_dir / f"{title}_Bode_Plots.png"
-        plt.savefig(output_path, bbox_inches="tight")
-        logger.info("Saved %s", output_path)
+                self._draw_margins_manually(mag_ax, phase_ax, COLOR_CYCLE)
 
-        return output_path
+            handles, all_labels = mag_ax.get_legend_handles_labels()
+            by_label = {l: h for h, l in zip(handles, all_labels) if l in self._labels}
 
+            if mag_ax.legend_ is not None:
+                mag_ax.legend_.remove()
+
+            fig.legend(by_label.values(), by_label.keys(), loc="center left", bbox_to_anchor=(1.02, 0.5))
+            fig.set_size_inches(*FIGSIZE_BODE)
+            fig.suptitle(title, y=0.98)
+
+            output_path = output_dir / f"{title}_Bode_Plots.png"
+            savefig_hq(output_path, fig)
+            logger.info("Saved %s", output_path)
+
+            return output_path
+
+    def _draw_margins_manually(self, mag_ax, phase_ax, color_cycle) -> None:
+        for i, (nome, gm, pm, wcg, wcp) in enumerate(self._margins):
+            color = color_cycle[i % len(color_cycle)]
+
+            # wcg/wcp já vêm em rad/s de ct.margin() -- sem conversão
+            if wcg and np.isfinite(wcg) and wcg > 0:
+                mag_ax.axvline(wcg, color=color, linestyle=":", linewidth=1.0, alpha=0.7)
+                phase_ax.axvline(wcg, color=color, linestyle=":", linewidth=1.0, alpha=0.7)
+
+            if wcp and np.isfinite(wcp) and wcp > 0:
+                mag_ax.axvline(wcp, color=color, linestyle="--", linewidth=1.0, alpha=0.7)
+                phase_ax.axvline(wcp, color=color, linestyle="--", linewidth=1.0, alpha=0.7)
+
+            gm_db = 20 * np.log10(gm) if gm and np.isfinite(gm) and gm > 0 else None
+            gm_txt = f"{gm_db:.1f} dB" if gm_db is not None else "n/a"
+            pm_txt = f"{pm:.1f} deg" if pm and np.isfinite(pm) else "n/a"
+
+            logger.info(
+                "Margins (%s): GM=%s @ %.3g rad/s | PM=%s @ %.3g rad/s",
+                nome, gm_txt, wcg or float("nan"), pm_txt, wcp or float("nan"),
+            )
+
+    def _all_frequencies_match(self) -> bool:
+        """Verifica se todos os sistemas compartilham o mesmo vetor omega
+        (mesmo tamanho e mesmos valores)."""
+        if len(self._systems) < 2:
+            return True
+
+        omega0 = self._systems[0].omega
+        for sys_frd in self._systems[1:]:
+            omega_i = sys_frd.omega
+            if omega_i.shape != omega0.shape or not np.allclose(omega_i, omega0):
+                return False
+        return True
 
 def _parse_args() -> "argparse.Namespace":
     parser = argparse.ArgumentParser(

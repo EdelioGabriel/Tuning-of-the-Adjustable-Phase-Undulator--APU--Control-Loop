@@ -31,6 +31,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from plot_style import apply_style, clean_grid, savefig_hq, FIGSIZE_BODE, FIGSIZE_SINGLE
+
+apply_style()
 
 @dataclass
 class StepResponseMetrics:
@@ -310,11 +313,6 @@ class ScopeVisualizer:
 
     @staticmethod
     def _plot_error_band(ax, df: pd.DataFrame, metrics: List[StepResponseMetrics]) -> None:
-        """Plota o erro e(t) = setpoint - Act*(t) ao longo do tempo, dentro
-        da janela de regime permanente de cada variável, com linhas
-        tracejadas horizontais marcando a amplitude (máximo e mínimo) do
-        erro observado -- a "banda de tolerância" da oscilação estável.
-        """
         tempo_s = (df["Time_ms"].to_numpy()) / 1000.0
         algo_plotado = False
 
@@ -327,32 +325,25 @@ class ScopeVisualizer:
             t_janela = tempo_s[i0:i1]
             erro_t = m.setpoint - serie[i0:i1]
 
-            linha, = ax.plot(t_janela, erro_t, label=f"erro {m.variavel}")
+            linha, = ax.plot(t_janela, erro_t, label=f"error {m.variavel}")
             cor = linha.get_color()
 
-            erro_banda_max = m.setpoint - m.banda_min  # pico do erro (Act* mínimo)
-            erro_banda_min = m.setpoint - m.banda_max  # vale do erro (Act* máximo)
+            erro_banda_max = m.setpoint - m.banda_min
+            erro_banda_min = m.setpoint - m.banda_max
             ax.axhline(erro_banda_max, linestyle="--", color=cor, alpha=0.6, linewidth=1)
             ax.axhline(erro_banda_min, linestyle="--", color=cor, alpha=0.6, linewidth=1)
-            ax.text(
-                t_janela[-1], erro_banda_max, f" {erro_banda_max:.2f}",
-                fontsize=7, color=cor, va="bottom",
-            )
-            ax.text(
-                t_janela[-1], erro_banda_min, f" {erro_banda_min:.2f}",
-                fontsize=7, color=cor, va="top",
-            )
+            ax.text(t_janela[-1], erro_banda_max, f" {erro_banda_max:.2f}", fontsize=8, color=cor, va="bottom")
+            ax.text(t_janela[-1], erro_banda_min, f" {erro_banda_min:.2f}", fontsize=8, color=cor, va="top")
             algo_plotado = True
 
         if not algo_plotado:
             return
 
         ax.axhline(0, color="black", linewidth=0.8)
-        ax.set_xlabel("Tempo (s)")
-        ax.set_ylabel("Erro (setpoint - Act*)")
-        ax.set_title("Erro em regime permanente, com banda de tolerância (máx/mín)")
-        ax.legend(loc="best", fontsize=8)
-        ax.grid(True)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Error (setpoint - Act*)")
+        ax.set_title("Steady-state error, with tolerance band (max/min)")
+        ax.legend(loc="best")
 
     def _plot_all(self, output_dir: Path) -> List[Path]:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -362,10 +353,7 @@ class ScopeVisualizer:
         for df, label in zip(self.dfs, self.labels):
             variaveis_filtradas = self._matching_columns(df)
             if not variaveis_filtradas:
-                logger.info(
-                    "%s: nenhuma variável casando com %s encontrada, pulando.",
-                    label, self.var_filters,
-                )
+                logger.info("%s: no variable matching %s found, skipping.", label, self.var_filters)
                 continue
 
             metrics = self._metrics_for_label(df, variaveis_filtradas)
@@ -377,10 +365,10 @@ class ScopeVisualizer:
 
             if tem_erro_para_plotar:
                 fig, (ax_sinal, ax_erro) = plt.subplots(
-                    2, 1, figsize=(10, 8), gridspec_kw={"height_ratios": [2, 1]},
+                    2, 1, figsize=(9, 7), gridspec_kw={"height_ratios": [2, 1]},
                 )
             else:
-                fig, ax_sinal = plt.subplots(figsize=(10, 5))
+                fig, ax_sinal = plt.subplots(figsize=FIGSIZE_SINGLE)
                 ax_erro = None
 
             tempo_s = df["Time_ms"] / 1000.0
@@ -389,20 +377,19 @@ class ScopeVisualizer:
 
             self._draw_metrics_box(ax_sinal, metrics)
 
-            ax_sinal.set_xlabel("Tempo (s)")
+            ax_sinal.set_xlabel("Time (s)")
             ax_sinal.set_ylabel(self.y_label)
             ax_sinal.set_title(label)
             ax_sinal.legend(loc="best")
-            ax_sinal.grid(True)
 
             if ax_erro is not None:
                 self._plot_error_band(ax_erro, df, metrics)
 
-            plt.tight_layout()
+            fig.tight_layout()
 
             safe_label = re.sub(r"[^A-Za-z0-9._-]+", "_", label).strip("._")
             output_path = output_dir / f"{safe_label}_response.png"
-            plt.savefig(output_path)
+            savefig_hq(output_path, fig)
             logger.info("Saved %s", output_path)
             plt.close(fig)
 

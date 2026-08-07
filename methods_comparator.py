@@ -33,6 +33,10 @@ from typing import Dict, List, Optional, Union
 import matplotlib.pyplot as plt
 import numpy as np
 
+from plot_style import apply_style, clean_grid, savefig_hq, FIGSIZE_BODE, FIGSIZE_SINGLE
+
+apply_style()
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
@@ -46,7 +50,13 @@ logger = logging.getLogger(__name__)
 PREFIXO_PARA_METODO: Dict[str, str] = {
     "OPTUNA": "Optuna + AICc",
     "VF": "Vector Fitting",
-    "LS": "Mínimos Quadrados",
+    "LS": "Least Squares",
+}
+
+PALETA_METODOS: Dict[str, str] = {
+    "Least Squares": "#4C72B0",
+    "Optuna + AICc": "#DD8452",
+    "Vector Fitting": "#55A868",
 }
 
 CHAVES_RMS = ("rms_error", "rms_error_vector_fitting")
@@ -187,53 +197,26 @@ class ColetorErrosRMS:
                 metodo, s["n"], s["media"], s["desvio_padrao"],
             )
 
-
 # =============================================================================
 # Plot
 # =============================================================================
-
-# Paleta fixa por método -- assim a cor de cada método fica consistente
-# entre execuções diferentes, mesmo que o conjunto de métodos presentes mude.
-PALETA_METODOS: Dict[str, str] = {
-    "Mínimos Quadrados": "#4C72B0",
-    "Optuna + AICc": "#DD8452",
-    "Vector Fitting": "#55A868",
-}
 COR_FALLBACK = "#8172B2"
 
-
 def plotar_boxplots(erros_por_metodo: Dict[str, List[float]], output_path: Path, log_scale: bool = True) -> None:
-    """Gera um único gráfico com um boxplot por método, ordenados pela
-    mediana (do melhor para o pior)."""
-    metodos_ordenados = sorted(
-        erros_por_metodo.keys(),
-        key=lambda m: np.median(erros_por_metodo[m]),
-    )
+    
+    metodos_ordenados = sorted(erros_por_metodo.keys(), key=lambda m: np.median(erros_por_metodo[m]))
     dados_plot = [erros_por_metodo[m] for m in metodos_ordenados]
     cores = [PALETA_METODOS.get(m, COR_FALLBACK) for m in metodos_ordenados]
 
-    plt.rcParams.update({
-        "font.size": 11,
-        "axes.titlesize": 13,
-        "axes.titleweight": "bold",
-        "axes.labelsize": 11,
-    })
-
-    fig, ax = plt.subplots(figsize=(9, 6))
+    fig, ax = plt.subplots(figsize=FIGSIZE_SINGLE)
 
     bp = ax.boxplot(
-        dados_plot,
-        tick_labels=metodos_ordenados,
-        showmeans=True,
-        patch_artist=True,
-        widths=0.55,
-        meanprops=dict(marker="D", markerfacecolor="white", markeredgecolor="black",
-                       markersize=6, zorder=4),
+        dados_plot, tick_labels=metodos_ordenados, showmeans=True, patch_artist=True, widths=0.55,
+        meanprops=dict(marker="D", markerfacecolor="white", markeredgecolor="black", markersize=6, zorder=4),
         medianprops=dict(color="black", linewidth=1.6),
         whiskerprops=dict(color="#444444", linewidth=1.1),
         capprops=dict(color="#444444", linewidth=1.1),
-        flierprops=dict(marker="o", markerfacecolor="#444444", markeredgecolor="none",
-                         markersize=4, alpha=0.5),
+        flierprops=dict(marker="o", markerfacecolor="#444444", markeredgecolor="none", markersize=4, alpha=0.5),
         zorder=3,
     )
     for patch, cor in zip(bp["boxes"], cores):
@@ -245,30 +228,22 @@ def plotar_boxplots(erros_por_metodo: Dict[str, List[float]], output_path: Path,
     if log_scale:
         ax.set_yscale("log")
 
-    # Anotações de n e média acima de cada caixa
     y_min, y_max = ax.get_ylim()
     offset = (np.log10(y_max) - np.log10(y_min)) * 0.04 if log_scale else (y_max - y_min) * 0.04
     for i, metodo in enumerate(metodos_ordenados, start=1):
         erros = erros_por_metodo[metodo]
         topo = max(erros)
         y_anot = topo * (10 ** offset) if log_scale else topo + offset
-        ax.text(
-            i, y_anot, f"n={len(erros)}\nμ={np.mean(erros):.3e}",
-            ha="center", va="bottom", fontsize=8.5, color="#333333",
-        )
+        ax.text(i, y_anot, f"n={len(erros)}\nμ={np.mean(erros):.3e}", ha="center", va="bottom", fontsize=9, color="#333333")
 
     ax.set_ylim(top=(y_max * (10 ** (offset * 3.5)) if log_scale else y_max + offset * 3.5))
-    ax.set_ylabel("Erro RMS" + (" (escala log)" if log_scale else ""))
-    ax.set_title("Comparação do Erro RMS por Método de Identificação")
-    ax.grid(True, which="major" if log_scale else "both", axis="y", linestyle="--", alpha=0.4, zorder=0)
+    ax.set_ylabel("RMS Error" + (" (log scale)" if log_scale else ""))
+    ax.set_title("RMS Error Comparison by Identification Method")
+    clean_grid(ax, axis="y")
     ax.set_axisbelow(True)
 
-    for spine in ("top", "right"):
-        ax.spines[spine].set_visible(False)
-    ax.tick_params(axis="x", labelsize=10)
-
     fig.tight_layout()
-    fig.savefig(output_path, dpi=150)
+    savefig_hq(output_path, fig)
     logger.info("\nGráfico salvo em %s", output_path)
     plt.close(fig)
 
